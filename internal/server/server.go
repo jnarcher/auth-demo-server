@@ -1,6 +1,7 @@
 package server
 
 import (
+	"auth-demo/internal/database"
 	"auth-demo/internal/middleware"
 	"fmt"
 	"net/http"
@@ -11,12 +12,14 @@ import (
 
 type Server struct {
 	port int
+    db database.Database
 }
 
 func NewServer() *http.Server {
 	port, _ := strconv.Atoi(os.Getenv("PORT"))
 	newServer := &Server{
 		port: port,
+        db: database.Connect("test.db"),
 	}
 
     router := newServer.RegisterRoutes()

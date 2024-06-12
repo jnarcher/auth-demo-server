@@ -11,7 +11,7 @@ import (
 
 func main() {
     if err := godotenv.Load(); err != nil {
-        panic(err)
+        log.Fatalf("Error loading .env: %v", err)
     }
 
 	server := server.NewServer()
