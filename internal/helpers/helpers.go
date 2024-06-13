@@ -1,12 +1,12 @@
 package helpers
 
 import (
-	"log"
+	"encoding/json"
 	"net/http"
 )
 
-func SendError(w http.ResponseWriter,  msg string, statusCode int) {
-    log.Println("ERROR -", msg)
-    http.Error(w, msg, statusCode)
+func WriteJson(w http.ResponseWriter, status int, v any) error {
+	w.Header().Add("Content-Type", "application/json")
+	w.WriteHeader(status)
+	return json.NewEncoder(w).Encode(v)
 }
-

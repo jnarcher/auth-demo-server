@@ -2,63 +2,79 @@ package middleware
 
 import (
 	"auth-demo/internal/auth"
-	hlp "auth-demo/internal/helpers"
+	"auth-demo/internal/helpers"
+	"auth-demo/internal/model"
 	"errors"
+	// "fmt"
 	"net/http"
-	// "strings"
 )
 
-var secretKey = []byte("super-duper-secret-key")
-
-func Auth(next http.Handler) http.Handler {
+func WithAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-        c, err := r.Cookie("token")
+		c, err := r.Cookie("token")
 		if err != nil {
-            switch {
-            case errors.Is(err, http.ErrNoCookie):
-                hlp.SendError(w, "Auth cookie not found", http.StatusBadRequest)
-            default:
-                hlp.SendError(w, "server error", http.StatusInternalServerError)
-            }
+			switch {
+			case errors.Is(err, http.ErrNoCookie):
+				_ = helpers.WriteJson(
+					w,
+					http.StatusBadRequest,
+					model.ApiError{Error: "Auth cookie not found"},
+				)
+			default:
+				_ = helpers.WriteJson(
+					w,
+					http.StatusInternalServerError,
+					model.ApiError{Error: "server error"},
+				)
+			}
 			return
 		}
 
-        tokenString := c.Value
-		// tokenParts := strings.Split(tokenString, " ")
-		// if len(tokenParts) != 2 || tokenParts[0] != "Bearer" {
-		// 	hlp.SendError(w, "Invalid auth token", http.StatusUnauthorized)
+		tokenString := c.Value
+
+		_, err = auth.VerifyToken(tokenString)
+		if err != nil {
+			_ = helpers.WriteJson(
+				w,
+				http.StatusUnauthorized,
+				model.ApiError{Error: "Invalid auth token"},
+			)
+			return
+		}
+
+		// id, ok := claims["id"].(int)
+		// if !ok {
+		//           _ = helpers.WriteJson(
+		//               w,
+		//               http.StatusUnauthorized,
+		//               model.ApiError{Error: "Unable to parse id from auth token"},
+		//           )
 		// 	return
 		// }
-
-		// tokenString = tokenParts[1]
-
-		claims, err := auth.VerifyToken(tokenString)
-		if err != nil {
-			hlp.SendError(w, "Invalid auth token", http.StatusUnauthorized)
-			return
-		}
-
-		user, ok := claims["user"].(string)
-		if !ok {
-			hlp.SendError(w, "Unable to parse jwt", http.StatusUnauthorized)
-			return
-		}
-
-		role, ok := claims["role"].(string)
-		if !ok {
-			hlp.SendError(w, "Unable to parse jwt", http.StatusUnauthorized)
-			return
-		}
-
-		pwdHash, ok := claims["pwdHash"].(string)
-		if !ok {
-			hlp.SendError(w, "Unable to parse jwt", http.StatusUnauthorized)
-			return
-		}
-
-        r.Header.Add("user", user)
-        r.Header.Add("role", role)
-        r.Header.Add("pwdHash", pwdHash)
+		//
+		// user, ok := claims["user"].(string)
+		// if !ok {
+		//           _ = helpers.WriteJson(
+		//               w,
+		//               http.StatusUnauthorized,
+		//               model.ApiError{Error: "Unable to parse user auth token"},
+		//           )
+		// 	return
+		// }
+		//
+		// pwdHash, ok := claims["pwdHash"].(string)
+		// if !ok {
+		//           _ = helpers.WriteJson(
+		//               w,
+		//               http.StatusUnauthorized,
+		//               model.ApiError{Error: "Unable to parse pwd auth token"},
+		//           )
+		// 	return
+		// }
+		//
+		//       r.Header.Add("account_id", fmt.Sprintf("%d", id))
+		//       r.Header.Add("account_user", user)
+		//       r.Header.Add("account_pwdHash", pwdHash)
 		next.ServeHTTP(w, r)
 	})
 }

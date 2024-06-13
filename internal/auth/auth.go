@@ -1,23 +1,29 @@
 package auth
 
 import (
+	"auth-demo/internal/model"
 	"fmt"
 	"log"
+	"net/http"
+	"os"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
+	jwt "github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
-var secretKey = []byte("super-duper-secret-key")
+func CreateToken(acc *model.Account) (string, error) {
+    secretKey, err := getSecretKey()
+    if err != nil {
+        return "", err
+    }
 
-func CreateToken(user string, pwdHash string, role string) (string, error) {
 	token := jwt.NewWithClaims(
 		jwt.SigningMethodHS256,
 		jwt.MapClaims{
-			"user": user,
-            "pwdHash": pwdHash,
-			"role": role,
+            "id": acc.Id,
+			"user": acc.User,
+            "pwdHash": acc.PwdHash,
 			"exp":  time.Now().Add(time.Hour * 24).Unix(),
 		},
 	)
@@ -32,13 +38,17 @@ func CreateToken(user string, pwdHash string, role string) (string, error) {
 }
 
 func VerifyToken(tokenString string) (jwt.MapClaims, error) {
+    secretKey, err := getSecretKey()
+    if err != nil {
+        return nil, err
+    }
+
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if token.Method.Alg() != "HS256" {
 			return nil, fmt.Errorf("Invalid signing method")
 		}
 		return secretKey, nil
 	})
-
 	if err != nil {
 		return nil, err
 	}
@@ -46,6 +56,7 @@ func VerifyToken(tokenString string) (jwt.MapClaims, error) {
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
 		return claims, nil
 	}
+
 
 	return nil, fmt.Errorf("Invalid token")
 }
@@ -58,4 +69,28 @@ func HashPassword(pwd string) (string, error) {
 func CheckPasswordHash(pwd, hash string) bool {
     err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(pwd))
     return err == nil
+}
+
+func SetAuthCookie(w http.ResponseWriter, acc *model.Account) error {
+    tkn, err := CreateToken(acc)
+    if err != nil {
+        return err
+    }
+
+	cookie := &http.Cookie{
+		Name:     "token",
+		Value:    tkn,
+		HttpOnly: true,
+		Secure:   true,
+	}
+	http.SetCookie(w, cookie)
+    return nil
+}
+
+func getSecretKey() ([]byte, error) {
+    secretKey, ok := os.LookupEnv("JWT_SECRET")
+    if !ok {
+        return []byte{}, fmt.Errorf("JWT secret key not set in env")  
+    }
+    return []byte(secretKey), nil
 }

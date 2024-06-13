@@ -1,6 +1,9 @@
 package server
 
 import (
+	"auth-demo/internal/auth"
+	"auth-demo/internal/database"
+	"auth-demo/internal/helpers"
 	"auth-demo/internal/middleware"
 	"auth-demo/internal/model"
 	"encoding/json"
@@ -10,47 +13,29 @@ import (
 	"strconv"
 )
 
-type ApiError struct {
-    Error string `json:"error"`
-}
-
-type apiFunc func(w http.ResponseWriter, r *http.Request) error
-
 func (s *Server) RegisterRoutes() http.Handler {
 	r := http.NewServeMux()
 
-	public := http.NewServeMux()
-	public.HandleFunc("POST /login", getHandleFunc(s.handleLogin))
-	public.HandleFunc("POST /signup", getHandleFunc(s.handleSignup))
-
-    // TODO: put these routes in protected
-    public.HandleFunc("GET /account/{id}", getHandleFunc(s.handleGetAccountById))
-    public.HandleFunc("DELETE /account/{id}", getHandleFunc(s.handleDeleteAccountById))
-    public.HandleFunc("GET /account", getHandleFunc(s.handleGetAccount))
+	r.HandleFunc("POST /login", getHandleFunc(s.handleLogin))
+	r.HandleFunc("POST /signup", getHandleFunc(s.handleSignup))
 
 	protected := http.NewServeMux()
 	protected.HandleFunc("GET /hello", getHandleFunc(s.handleHello))
+    protected.HandleFunc("GET /account/{id}", getHandleFunc(s.handleGetAccountById))
+    protected.HandleFunc("DELETE /account/{id}", getHandleFunc(s.handleDeleteAccountById))
+    protected.HandleFunc("GET /account", getHandleFunc(s.handleGetAccount))
 
-	r.Handle("/public/", http.StripPrefix("/public", public))
-	r.Handle("/protected/", http.StripPrefix(
-		"/protected", middleware.Auth(protected),
-	))
+	r.Handle("/protected/", http.StripPrefix("/protected", middleware.WithAuth(protected)))
 	return r
 }
 
-func getHandleFunc(fn apiFunc) http.HandlerFunc {
+func getHandleFunc(fn model.ApiFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if err := fn(w, r); err != nil {
             log.Printf("ERROR - %v\n", err)
-			writeJson(w, http.StatusBadRequest, ApiError{Error: err.Error()})
+			helpers.WriteJson(w, http.StatusBadRequest, model.ApiError{Error: err.Error()})
 		}
 	}
-}
-
-func writeJson(w http.ResponseWriter, status int, v any) error {
-	w.Header().Add("Content-Type", "application/json")
-	w.WriteHeader(status)
-	return json.NewEncoder(w).Encode(v)
 }
 
 func (s *Server) handleHello(w http.ResponseWriter, r *http.Request) error {
@@ -58,18 +43,18 @@ func (s *Server) handleHello(w http.ResponseWriter, r *http.Request) error {
 	resp["message"] = "Hello World"
 	jsonResp, err := json.Marshal(resp)
 	if err != nil {
-        return writeJson(w, http.StatusInternalServerError, ApiError{Error: err.Error()})
+        return helpers.WriteJson(w, http.StatusInternalServerError, model.ApiError{Error: err.Error()})
 	}
 	_, err = w.Write(jsonResp)
 	return err 
 }
 
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) error {
-	// // parse login request body
-	// var loginRequest model.LoginRequest
-	// if err := json.NewDecoder(r.Body).Decode(&loginRequest); err != nil {
-	// 	return writeJson(w, http.StatusBadRequest, fmt.Sprintf("Unable to parse request body: %v", err))
-	// }
+	// parse login request body
+	var loginRequest model.LoginRequest
+	if err := json.NewDecoder(r.Body).Decode(&loginRequest); err != nil {
+		return helpers.WriteJson(w, http.StatusBadRequest, fmt.Sprintf("Unable to parse request body: %v", err))
+	}
 
 	//
 	// // get acc from database
@@ -102,16 +87,16 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) error {
 	// http.SetCookie(w, cookie)
 	//
 	// return writeJson(w, http.StatusOK, acc.Safe()
-    return writeJson(w, http.StatusNotImplemented, ApiError{Error: "route not implemented"})
+    return helpers.WriteJson(w, http.StatusNotImplemented, model.ApiError{Error: "route not implemented"})
 }
 
 func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) error {
-    createAccReq := &model.CreateAccountRequest{}
+    createAccReq := &model.SignupRequest{}
     if err := json.NewDecoder(r.Body).Decode(&createAccReq); err != nil {
         return err
     }
 
-    account, err := model.NewAccount(*createAccReq)
+    account, err := database.NewAccount(*createAccReq)
     if err != nil {
         return err
     }
@@ -120,7 +105,11 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) error {
         return err
     }
 
-    return writeJson(w, http.StatusOK, account)
+    if err := auth.SetAuthCookie(w, account); err != nil {
+        return err
+    }
+
+    return helpers.WriteJson(w, http.StatusOK, account)
 }
 
 func (s *Server) handleGetAccountById(w http.ResponseWriter, r *http.Request) error {
@@ -134,7 +123,7 @@ func (s *Server) handleGetAccountById(w http.ResponseWriter, r *http.Request) er
         return fmt.Errorf("No account found with id %d", id)
 	}
 
-	return writeJson(w, http.StatusOK, acc)
+	return helpers.WriteJson(w, http.StatusOK, acc)
 }
 
 func (s *Server) handleGetAccount(w http.ResponseWriter, r *http.Request) error {
@@ -142,7 +131,7 @@ func (s *Server) handleGetAccount(w http.ResponseWriter, r *http.Request) error 
     if err != nil {
         return err
     }
-    return writeJson(w, http.StatusOK, accounts)
+    return helpers.WriteJson(w, http.StatusOK, accounts)
 }
 
 
@@ -156,7 +145,7 @@ func (s *Server) handleDeleteAccountById(w http.ResponseWriter, r *http.Request)
         return err
     }
 
-    return writeJson(w, http.StatusOK, map[string]int{"deleted": id})
+    return helpers.WriteJson(w, http.StatusOK, map[string]int{"deleted": id})
 }
 
 func getId(r *http.Request) (int, error) {
