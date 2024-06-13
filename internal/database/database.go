@@ -12,6 +12,7 @@ type DB interface {
 	UpdateAccount(*model.Account) error
     GetAccounts() ([]*model.Account, error)
 	GetAccountById(int) (*model.Account, error)
+    GetAccountByUser(user string) (*model.Account, error)
 }
 
 func NewAccount(req model.SignupRequest) (*model.Account, error) {

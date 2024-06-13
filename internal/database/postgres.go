@@ -121,7 +121,7 @@ func (db *PostgresStore) GetAccounts() ([]*model.Account, error) {
 
     accounts := []*model.Account{}
     for rows.Next() {
-        acc, err := scanIntoAccount(rows)
+        acc, err := scanRowsIntoAccount(rows)
         if err != nil {
             return nil, err
         }
@@ -137,11 +137,35 @@ func (db *PostgresStore) GetAccountById(id int) (*model.Account, error) {
     query := `SELECT * FROM account WHERE id = $1 AND deleted_at IS NULL;`
     row := db.db.QueryRow(query, id)
     if row == nil {
-        return nil, fmt.Errorf("Failed to insert new account")
+        return nil, fmt.Errorf("Account %d not found", id)
     }
 
+    acc, err := scanRowIntoAccount(row)
+    if err != nil {
+        return nil, fmt.Errorf("Account %d not found", id)
+    }
+
+	return acc, nil 
+}
+
+func (db *PostgresStore) GetAccountByUser(user string) (*model.Account, error) {
+    query := `SELECT * FROM account WHERE username = $1 AND deleted_at IS NULL;`
+    row := db.db.QueryRow(query, user)
+    if row == nil {
+        return nil, fmt.Errorf("Account `%s` not found", user)
+    }
+
+    acc, err := scanRowIntoAccount(row)
+    if err != nil {
+        return nil, fmt.Errorf("Account `%s` not found", user)
+    }
+
+	return acc, nil 
+}
+
+func scanRowsIntoAccount(rows *sql.Rows) (*model.Account, error) {
     acc := &model.Account{}
-    err := row.Scan(
+    err := rows.Scan(
         &acc.Id,
         &acc.User, 
         &acc.PwdHash, 
@@ -153,17 +177,12 @@ func (db *PostgresStore) GetAccountById(id int) (*model.Account, error) {
         &acc.UpdatedAt,
         &acc.DeletedAt,
     )
-
-    if err != nil {
-        return nil, fmt.Errorf("Account %d not found", id)
-    }
-
-	return acc, nil 
+	return acc, err
 }
 
-func scanIntoAccount(rows *sql.Rows) (*model.Account, error) {
+func scanRowIntoAccount(row *sql.Row) (*model.Account, error) {
     acc := &model.Account{}
-    err := rows.Scan(
+    err := row.Scan(
         &acc.Id,
         &acc.User, 
         &acc.PwdHash, 

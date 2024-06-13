@@ -5,6 +5,9 @@ import (
 	"auth-demo/internal/helpers"
 	"auth-demo/internal/model"
 	"errors"
+	"fmt"
+	"log"
+
 	// "fmt"
 	"net/http"
 )
@@ -18,7 +21,7 @@ func WithAuth(next http.Handler) http.Handler {
 				_ = helpers.WriteJson(
 					w,
 					http.StatusBadRequest,
-					model.ApiError{Error: "Auth cookie not found"},
+					model.ApiError{Error: "permision denied"},
 				)
 			default:
 				_ = helpers.WriteJson(
@@ -31,50 +34,20 @@ func WithAuth(next http.Handler) http.Handler {
 		}
 
 		tokenString := c.Value
-
-		_, err = auth.VerifyToken(tokenString)
+        claims, err := auth.VerifyToken(tokenString)
 		if err != nil {
+            log.Printf("Error - unable to verify jwt token: %+v", err)
 			_ = helpers.WriteJson(
 				w,
 				http.StatusUnauthorized,
-				model.ApiError{Error: "Invalid auth token"},
+				model.ApiError{Error: "permission denied"},
 			)
 			return
 		}
 
-		// id, ok := claims["id"].(int)
-		// if !ok {
-		//           _ = helpers.WriteJson(
-		//               w,
-		//               http.StatusUnauthorized,
-		//               model.ApiError{Error: "Unable to parse id from auth token"},
-		//           )
-		// 	return
-		// }
-		//
-		// user, ok := claims["user"].(string)
-		// if !ok {
-		//           _ = helpers.WriteJson(
-		//               w,
-		//               http.StatusUnauthorized,
-		//               model.ApiError{Error: "Unable to parse user auth token"},
-		//           )
-		// 	return
-		// }
-		//
-		// pwdHash, ok := claims["pwdHash"].(string)
-		// if !ok {
-		//           _ = helpers.WriteJson(
-		//               w,
-		//               http.StatusUnauthorized,
-		//               model.ApiError{Error: "Unable to parse pwd auth token"},
-		//           )
-		// 	return
-		// }
-		//
-		//       r.Header.Add("account_id", fmt.Sprintf("%d", id))
-		//       r.Header.Add("account_user", user)
-		//       r.Header.Add("account_pwdHash", pwdHash)
+        r.Header.Add("account_id", fmt.Sprintf("%d", claims.AccountId))
+        r.Header.Add("account_user", claims.User)
+        r.Header.Add("account_pwd_hash", claims.PwdHash)
 		next.ServeHTTP(w, r)
 	})
 }

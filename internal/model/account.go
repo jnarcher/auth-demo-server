@@ -21,7 +21,7 @@ type LoginRequest struct {
 type Account struct {
 	Id        int    `json:"id"`
 	User      string `json:"user"`
-	PwdHash   string `json:"pwdHash"`
+	PwdHash   string `json:"-"`
 	FirstName string `json:"firstName"`
 	LastName  string `json:"lastName"`
 	Email     string `json:"email"`
