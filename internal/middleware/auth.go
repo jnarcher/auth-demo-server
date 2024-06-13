@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log"
 
-	// "fmt"
 	"net/http"
 )
 
@@ -18,12 +17,14 @@ func WithAuth(next http.Handler) http.Handler {
 		if err != nil {
 			switch {
 			case errors.Is(err, http.ErrNoCookie):
+                log.Println("No token cookie found in request headers")
 				_ = helpers.WriteJson(
 					w,
-					http.StatusBadRequest,
+					http.StatusUnauthorized,
 					model.ApiError{Error: "permision denied"},
 				)
 			default:
+                log.Printf("Error - %+v", err)
 				_ = helpers.WriteJson(
 					w,
 					http.StatusInternalServerError,

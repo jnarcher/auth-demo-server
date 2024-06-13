@@ -19,7 +19,7 @@ type LoginRequest struct {
 }
 
 type Account struct {
-	Id        int    `json:"id"`
+	Id        int64    `json:"id"`
 	User      string `json:"user"`
 	PwdHash   string `json:"-"`
 	FirstName string `json:"firstName"`

@@ -40,11 +40,8 @@ func getHandleFunc(fn model.ApiFunc) http.HandlerFunc {
 
 func (s *Server) handleHello(w http.ResponseWriter, r *http.Request) error {
 	resp := make(map[string]string)
-
-	pwd := r.Header.Get("account_pwd_hash")
-	log.Println(pwd)
-
-	resp["message"] = "Hello World"
+	resp["message"] = "Hello from protected api endpoint!"
+    resp["user"] = r.Header.Get("account_user")
 	jsonResp, err := json.Marshal(resp)
 	if err != nil {
 		return helpers.WriteJson(w, http.StatusInternalServerError, model.ApiError{Error: err.Error()})
@@ -63,21 +60,21 @@ func permissionDenied(w http.ResponseWriter) error {
 
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) error {
 	// parse login request body
-	var loginRequest model.LoginRequest
-	if err := json.NewDecoder(r.Body).Decode(&loginRequest); err != nil {
+	var req model.LoginRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		log.Println("Error - unable to decode login request")
 		return permissionDenied(w)
 	}
 
 	// get acc from database
-	acc, err := s.db.GetAccountByUser(loginRequest.User)
+	acc, err := s.db.GetAccountByUser(req.User)
 	if err != nil {
 		log.Printf("Error - unable to get account from db: %+v\n", err)
 		return permissionDenied(w)
 	}
 
 	// authenticate password
-	if !auth.CheckPasswordHash(loginRequest.Pwd, acc.PwdHash) {
+	if !auth.CheckPasswordHash(req.Pwd, acc.PwdHash) {
 		log.Println("Error - could not authenticate password")
 		return permissionDenied(w)
 	}
@@ -97,12 +94,12 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) error {
-	createAccReq := &model.SignupRequest{}
-	if err := json.NewDecoder(r.Body).Decode(&createAccReq); err != nil {
+	req := &model.SignupRequest{}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		return err
 	}
 
-	account, err := database.NewAccount(*createAccReq)
+	account, err := database.NewAccount(*req)
 	if err != nil {
 		return err
 	}

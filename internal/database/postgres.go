@@ -72,10 +72,13 @@ func Connect(path string) DB {
 }
 
 func (db *PostgresStore) CreateAccount(acc *model.Account) error {
-	query := `INSERT INTO account
-    (username, pwd_hash, first_name, last_name, email, phone)
-    VALUES ($1, $2, $3, $4, $5, $6);
-    `
+	query := `
+    INSERT INTO account
+        (username, pwd_hash, first_name, last_name, email, phone)
+    VALUES
+        ($1, $2, $3, $4, $5, $6)
+    ;`
+
 	if _, err := db.db.Query(query,
 		acc.User,
 		acc.PwdHash,
@@ -95,20 +98,46 @@ func (db *PostgresStore) CreateAccount(acc *model.Account) error {
         return fmt.Errorf("Failed to insert new account")
     }
 
-    id := &struct { Id int }{}
+    id := &struct { Id int64 }{}
     if err := row.Scan(&id.Id); err != nil {
         return err
     }
-
     acc.Id = id.Id;
 	return nil
 }
 func (db *PostgresStore) UpdateAccount(acc *model.Account) error {
-    return fmt.Errorf("PostgresStore.UpdateAccount: Not implemented")
+    query := `UPDTATE account
+    SET
+        pwd_hash    = $1,
+        first_name  = $2,
+        last_name   = $3,
+        email       = $4, 
+        phone       = $5
+    WHERE
+        id = $6
+    ;`
+
+    _, err := db.db.Exec(query,
+        acc.PwdHash,
+        acc.FirstName,
+        acc.LastName,
+        acc.Email,
+        acc.Phone,
+    )
+    return err
 }
 func (db *PostgresStore) DeleteAccount(id int) error {
-    query := `UPDATE account SET deleted_at = NOW() WHERE id = $1`
-    _, err := db.db.Exec(query, id);
+    query := `UPDATE account
+    SET 
+        deleted_at = NOW() 
+    WHERE
+        id = $1 AND deleted_at IS NULL
+    ;`
+    res, err := db.db.Exec(query, id);
+    rows, err := res.RowsAffected()
+    if rows == 0 {
+        return fmt.Errorf("account doesn't exist")
+    }
     return err
 }
 
