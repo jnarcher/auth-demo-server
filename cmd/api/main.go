@@ -1,24 +1,27 @@
 package main
 
 import (
+	"auth-demo/internal/database"
 	"auth-demo/internal/server"
-	"fmt"
 	"log"
 	"os"
+	"strconv"
 
-	"github.com/joho/godotenv"
+	_ "github.com/joho/godotenv/autoload"
 )
 
 func main() {
-    if err := godotenv.Load(); err != nil {
-        log.Fatalf("Error loading .env: %v", err)
+
+    store, err := database.NewPostgresStore()
+    if err != nil {
+        log.Fatal(err)
     }
 
-	server := server.NewServer()
+    if err := store.Init(); err != nil {
+        log.Fatal(err)
+    }
 
-	log.Printf("Listening on localhost:%s\n", os.Getenv("PORT"))
-	err := server.ListenAndServe()
-	if err != nil {
-		panic(fmt.Sprintf("cannot start server: %s", err))
-	}
+    port, _ := strconv.Atoi(os.Getenv("PORT"))
+	server := server.NewServer(port, store)
+    server.Run()
 }

@@ -4,38 +4,37 @@ import (
 	"auth-demo/internal/database"
 	"auth-demo/internal/middleware"
 	"fmt"
+	"log"
 	"net/http"
-	"os"
-	"strconv"
 	"time"
 )
 
 type Server struct {
 	port int
-    db database.Database
+    db database.DB
 }
 
-func NewServer() *http.Server {
-	port, _ := strconv.Atoi(os.Getenv("PORT"))
-	newServer := &Server{
+func NewServer(port int, db database.DB) *Server {
+	return &Server{
 		port: port,
-        db: database.Connect("test.db"),
+        db: db,
 	}
+}
 
-    router := newServer.RegisterRoutes()
-
-    stack := middleware.CreateStack(
-        middleware.Logging,
-        middleware.Cors,
-    )
+func (s *Server) Run() {
+    router := s.RegisterRoutes()
 
 	server := &http.Server{
-		Addr:         fmt.Sprintf(":%d", newServer.port),
-		Handler:      stack(router),
+		Addr:         fmt.Sprintf(":%d", s.port),
+		Handler:      middleware.ApplyDefault(router),
 		IdleTimeout:  time.Minute,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 30 * time.Second,
 	}
 
-    return server
+	log.Printf("Listening on port %d\n", s.port)
+	err := server.ListenAndServe()
+	if err != nil {
+		panic(fmt.Sprintf("cannot start server: %s", err))
+	}
 }

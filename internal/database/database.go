@@ -1,23 +1,12 @@
 package database
 
-import (
-	"log"
-	"sync"
+import "auth-demo/internal/model"
 
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
-)
-
-type Database struct {
-    mu sync.Mutex
-    conn *gorm.DB
+type DB interface {
+	CreateAccount(*model.Account) error
+	DeleteAccount(int) error
+	UpdateAccount(*model.Account) error
+    GetAccounts() ([]*model.Account, error)
+	GetAccountById(int) (*model.Account, error)
 }
 
-func Connect(path string) Database {
-    conn, err := gorm.Open(sqlite.Open(path), &gorm.Config{})
-    if err != nil {
-        panic(err)
-    }
-    log.Println("Connected to db.")
-    return Database{ conn: conn, }
-}

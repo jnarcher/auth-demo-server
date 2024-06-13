@@ -16,3 +16,14 @@ func CreateStack(xs ...Middleware) Middleware {
 		return next
 	}
 }
+
+func Apply(router http.Handler, stack Middleware) http.Handler {
+    return stack(router)
+}
+
+func ApplyDefault(router http.Handler) http.Handler {
+    return Apply(router, CreateStack(
+        Cors,
+        Logging,
+    ))
+}
