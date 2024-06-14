@@ -6,7 +6,7 @@ One Paragraph of project description goes here
 
 These instructions will get you a copy of the project up and running on your local machine for development and testing purposes. See deployment for notes on how to deploy the project on a live system.
 
-## Environment Variables
+### Environment Variables
 
 Create a `.env` file in the root directory with the following structure
 
@@ -61,3 +61,14 @@ clean up binary from the last build
 make clean
 ```
 
+### Running Instructions
+
+To get the server running first start the database container using the make command
+```bash
+make docker-run
+```
+Then run the make command to start the server
+```bash
+make run
+```
+This should start the server and log out any incoming requests from the client.
