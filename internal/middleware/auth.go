@@ -17,14 +17,14 @@ func WithAuth(next http.Handler) http.Handler {
 		if err != nil {
 			switch {
 			case errors.Is(err, http.ErrNoCookie):
-                log.Println("No token cookie found in request headers")
+				log.Println("No token cookie found in request headers")
 				_ = helpers.WriteJson(
 					w,
 					http.StatusUnauthorized,
 					model.ApiError{Error: "permision denied"},
 				)
 			default:
-                log.Printf("Error - %+v", err)
+				log.Printf("Error - %+v", err)
 				_ = helpers.WriteJson(
 					w,
 					http.StatusInternalServerError,
@@ -35,9 +35,9 @@ func WithAuth(next http.Handler) http.Handler {
 		}
 
 		tokenString := c.Value
-        claims, err := auth.VerifyToken(tokenString)
+		claims, err := auth.VerifyToken(tokenString)
 		if err != nil {
-            log.Printf("Error - unable to verify jwt token: %+v", err)
+			log.Printf("Error - unable to verify jwt token: %+v", err)
 			_ = helpers.WriteJson(
 				w,
 				http.StatusUnauthorized,
@@ -46,9 +46,9 @@ func WithAuth(next http.Handler) http.Handler {
 			return
 		}
 
-        r.Header.Add("account_id", fmt.Sprintf("%d", claims.AccountId))
-        r.Header.Add("account_user", claims.User)
-        r.Header.Add("account_pwd_hash", claims.PwdHash)
+		r.Header.Add("account_id", fmt.Sprintf("%d", claims.AccountId))
+		r.Header.Add("account_user", claims.User)
+		r.Header.Add("account_pwd_hash", claims.PwdHash)
 		next.ServeHTTP(w, r)
 	})
 }

@@ -21,9 +21,9 @@ func CreateToken(acc *model.Account) (string, error) {
 	claims := model.AuthClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 24)),
-            IssuedAt: jwt.NewNumericDate(time.Now()),
-            NotBefore: jwt.NewNumericDate(time.Now()),
-            Issuer: "auth-demo-server",
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			NotBefore: jwt.NewNumericDate(time.Now()),
+			Issuer:    "auth-demo-server",
 		},
 		AccountId: acc.Id,
 		User:      acc.User,
@@ -47,15 +47,15 @@ func VerifyToken(tokenString string) (*model.AuthClaims, error) {
 	}
 
 	token, err := jwt.ParseWithClaims(
-        tokenString, 
-        &model.AuthClaims{}, 
-        func(token *jwt.Token) (interface{}, error) {
-            if token.Method.Alg() != "HS256" {
-                return nil, fmt.Errorf("Invalid signing method")
-            }
-            return secretKey, nil
-        },
-    )
+		tokenString,
+		&model.AuthClaims{},
+		func(token *jwt.Token) (interface{}, error) {
+			if token.Method.Alg() != "HS256" {
+				return nil, fmt.Errorf("Invalid signing method")
+			}
+			return secretKey, nil
+		},
+	)
 	if err != nil {
 		return nil, err
 	}

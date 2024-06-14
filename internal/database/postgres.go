@@ -8,18 +8,17 @@ import (
 	"os"
 	"sync"
 
+	_ "github.com/joho/godotenv/autoload"
 	_ "github.com/lib/pq"
-    _ "github.com/joho/godotenv/autoload"
 )
 
 var (
-    host = os.Getenv("DB_HOST")
-    user = os.Getenv("DB_USERNAME")
-    password = os.Getenv("DB_PASSWORD")
-    dbname = os.Getenv("DB_NAME")
-    port = os.Getenv("DB_PORT") 
+	host     = os.Getenv("DB_HOST")
+	user     = os.Getenv("DB_USERNAME")
+	password = os.Getenv("DB_PASSWORD")
+	dbname   = os.Getenv("DB_NAME")
+	port     = os.Getenv("DB_PORT")
 )
-
 
 type PostgresStore struct {
 	mux sync.RWMutex
@@ -27,8 +26,8 @@ type PostgresStore struct {
 }
 
 func NewPostgresStore() (*PostgresStore, error) {
-    psqlInfo := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
-        host, port, user, password, dbname,
+	psqlInfo := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+		host, port, user, password, dbname,
 	)
 	db, err := sql.Open("postgres", psqlInfo)
 	if err != nil {
@@ -47,8 +46,8 @@ func (s *PostgresStore) Init() error {
 }
 
 func (s *PostgresStore) createAccountTable() error {
-    s.mux.Lock()
-    defer s.mux.Unlock()
+	s.mux.Lock()
+	defer s.mux.Unlock()
 
 	query := `CREATE TABLE IF NOT EXISTS account  (
         id SERIAL PRIMARY KEY,
@@ -81,8 +80,8 @@ func (s *PostgresStore) createAccountTable() error {
 }
 
 func (s *PostgresStore) CreateAccount(acc *model.Account) error {
-    s.mux.Lock()
-    defer s.mux.Unlock()
+	s.mux.Lock()
+	defer s.mux.Unlock()
 
 	query := `
     INSERT INTO account
@@ -118,8 +117,8 @@ func (s *PostgresStore) CreateAccount(acc *model.Account) error {
 	return nil
 }
 func (s *PostgresStore) UpdateAccount(acc *model.Account) error {
-    s.mux.Lock()
-    defer s.mux.Unlock()
+	s.mux.Lock()
+	defer s.mux.Unlock()
 
 	query := `UPDTATE account
     SET
@@ -142,8 +141,8 @@ func (s *PostgresStore) UpdateAccount(acc *model.Account) error {
 	return err
 }
 func (s *PostgresStore) DeleteAccount(id int) error {
-    s.mux.Lock()
-    defer s.mux.Unlock()
+	s.mux.Lock()
+	defer s.mux.Unlock()
 
 	query := `UPDATE account
     SET 
@@ -160,8 +159,8 @@ func (s *PostgresStore) DeleteAccount(id int) error {
 }
 
 func (s *PostgresStore) GetAccounts() ([]*model.Account, error) {
-    s.mux.RLock()
-    defer s.mux.RUnlock()
+	s.mux.RLock()
+	defer s.mux.RUnlock()
 
 	rows, err := s.db.Query("SELECT * FROM account WHERE deleted_at IS NULL")
 	if err != nil {
@@ -182,8 +181,8 @@ func (s *PostgresStore) GetAccounts() ([]*model.Account, error) {
 }
 
 func (s *PostgresStore) GetAccountById(id int) (*model.Account, error) {
-    s.mux.RLock()
-    defer s.mux.RUnlock()
+	s.mux.RLock()
+	defer s.mux.RUnlock()
 
 	query := `SELECT * FROM account WHERE id = $1 AND deleted_at IS NULL;`
 	row := s.db.QueryRow(query, id)
@@ -200,8 +199,8 @@ func (s *PostgresStore) GetAccountById(id int) (*model.Account, error) {
 }
 
 func (s *PostgresStore) GetAccountByUser(user string) (*model.Account, error) {
-    s.mux.RLock()
-    defer s.mux.RUnlock()
+	s.mux.RLock()
+	defer s.mux.RUnlock()
 
 	query := `SELECT * FROM account WHERE username = $1 AND deleted_at IS NULL;`
 	row := s.db.QueryRow(query, user)

@@ -11,18 +11,18 @@ import (
 
 type Server struct {
 	port int
-    db database.DB
+	db   database.DB
 }
 
 func NewServer(port int, db database.DB) *Server {
 	return &Server{
 		port: port,
-        db: db,
+		db:   db,
 	}
 }
 
 func (s *Server) Run() {
-    router := s.RegisterRoutes()
+	router := s.RegisterRoutes()
 
 	server := &http.Server{
 		Addr:         fmt.Sprintf(":%d", s.port),

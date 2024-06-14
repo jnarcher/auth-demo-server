@@ -14,12 +14,12 @@ type SignupRequest struct {
 }
 
 type LoginRequest struct {
-	User      string `json:"user"`
-	Pwd       string `json:"pwd"`
+	User string `json:"user"`
+	Pwd  string `json:"pwd"`
 }
 
 type Account struct {
-	Id        int64    `json:"id"`
+	Id        int64  `json:"id"`
 	User      string `json:"user"`
 	PwdHash   string `json:"-"`
 	FirstName string `json:"firstName"`
@@ -31,4 +31,3 @@ type Account struct {
 	UpdatedAt time.Time  `json:"updatedAt"`
 	DeletedAt *time.Time `json:"deletedAt"`
 }
-

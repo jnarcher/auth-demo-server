@@ -8,7 +8,7 @@ import (
 )
 
 type AuthClaims struct {
-	AccountId int64    `json:"accountId"`
+	AccountId int64  `json:"accountId"`
 	User      string `json:"user"`
 	PwdHash   string `json:"pwdHash"`
 

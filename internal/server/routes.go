@@ -95,7 +95,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (s *Server) handleCheckLogin(w http.ResponseWriter, r *http.Request) error {
-    return nil
+	return nil
 }
 
 func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) error {
