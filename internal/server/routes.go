@@ -20,6 +20,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 	r.HandleFunc("POST /signup", getHandleFunc(s.handleSignup))
 
 	protected := http.NewServeMux()
+	protected.HandleFunc("GET /auth/check", getHandleFunc(s.handleCheckLogin))
 	protected.HandleFunc("GET /hello", getHandleFunc(s.handleHello))
 	protected.HandleFunc("GET /account/{id}", getHandleFunc(s.handleGetAccountById))
 	protected.HandleFunc("DELETE /account/{id}", getHandleFunc(s.handleDeleteAccountById))
@@ -41,7 +42,7 @@ func getHandleFunc(fn model.ApiFunc) http.HandlerFunc {
 func (s *Server) handleHello(w http.ResponseWriter, r *http.Request) error {
 	resp := make(map[string]string)
 	resp["message"] = "Hello from protected api endpoint!"
-    resp["user"] = r.Header.Get("account_user")
+	resp["user"] = r.Header.Get("account_user")
 	jsonResp, err := json.Marshal(resp)
 	if err != nil {
 		return helpers.WriteJson(w, http.StatusInternalServerError, model.ApiError{Error: err.Error()})
@@ -91,6 +92,10 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) error {
 	log.Printf("JWT created for `%s`\n", acc.User)
 
 	return helpers.WriteJson(w, http.StatusOK, acc)
+}
+
+func (s *Server) handleCheckLogin(w http.ResponseWriter, r *http.Request) error {
+    return nil
 }
 
 func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) error {

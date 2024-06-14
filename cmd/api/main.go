@@ -7,11 +7,10 @@ import (
 	"os"
 	"strconv"
 
-	_ "github.com/joho/godotenv/autoload"
+    _ "github.com/joho/godotenv/autoload"
 )
 
 func main() {
-
     store, err := database.NewPostgresStore()
     if err != nil {
         log.Fatal(err)

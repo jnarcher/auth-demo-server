@@ -6,21 +6,31 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sync"
 
 	_ "github.com/lib/pq"
+    _ "github.com/joho/godotenv/autoload"
 )
 
+var (
+    host = os.Getenv("DB_HOST")
+    user = os.Getenv("DB_USERNAME")
+    password = os.Getenv("DB_PASSWORD")
+    dbname = os.Getenv("DB_NAME")
+    port = os.Getenv("DB_PORT") 
+)
+
+
 type PostgresStore struct {
-	db *sql.DB
+	mux sync.RWMutex
+	db  *sql.DB
 }
 
 func NewPostgresStore() (*PostgresStore, error) {
-	connString := fmt.Sprintf(
-        "user=%s dbname=postgres password=%s sslmode=disable",
-        os.Getenv("DB_USERNAME"),
-        os.Getenv("DB_PASSWORD"),
-    )
-	db, err := sql.Open("postgres", connString)
+    psqlInfo := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+        host, port, user, password, dbname,
+	)
+	db, err := sql.Open("postgres", psqlInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -37,6 +47,9 @@ func (s *PostgresStore) Init() error {
 }
 
 func (s *PostgresStore) createAccountTable() error {
+    s.mux.Lock()
+    defer s.mux.Unlock()
+
 	query := `CREATE TABLE IF NOT EXISTS account  (
         id SERIAL PRIMARY KEY,
         username VARCHAR(255) UNIQUE NOT NULL,
@@ -67,11 +80,10 @@ func (s *PostgresStore) createAccountTable() error {
 	return err
 }
 
-func Connect(path string) DB {
-	return nil
-}
+func (s *PostgresStore) CreateAccount(acc *model.Account) error {
+    s.mux.Lock()
+    defer s.mux.Unlock()
 
-func (db *PostgresStore) CreateAccount(acc *model.Account) error {
 	query := `
     INSERT INTO account
         (username, pwd_hash, first_name, last_name, email, phone)
@@ -79,7 +91,7 @@ func (db *PostgresStore) CreateAccount(acc *model.Account) error {
         ($1, $2, $3, $4, $5, $6)
     ;`
 
-	if _, err := db.db.Query(query,
+	if _, err := s.db.Query(query,
 		acc.User,
 		acc.PwdHash,
 		acc.FirstName,
@@ -92,21 +104,24 @@ func (db *PostgresStore) CreateAccount(acc *model.Account) error {
 
 	log.Printf("New account created: `%s`", acc.User)
 
-    query = `SELECT id FROM account WHERE username = $1 LIMIT 1;`
-    row := db.db.QueryRow(query, acc.User)
-    if row == nil {
-        return fmt.Errorf("Failed to insert new account")
-    }
+	query = `SELECT id FROM account WHERE username = $1 LIMIT 1;`
+	row := s.db.QueryRow(query, acc.User)
+	if row == nil {
+		return fmt.Errorf("Failed to insert new account")
+	}
 
-    id := &struct { Id int64 }{}
-    if err := row.Scan(&id.Id); err != nil {
-        return err
-    }
-    acc.Id = id.Id;
+	id := &struct{ Id int64 }{}
+	if err := row.Scan(&id.Id); err != nil {
+		return err
+	}
+	acc.Id = id.Id
 	return nil
 }
-func (db *PostgresStore) UpdateAccount(acc *model.Account) error {
-    query := `UPDTATE account
+func (s *PostgresStore) UpdateAccount(acc *model.Account) error {
+    s.mux.Lock()
+    defer s.mux.Unlock()
+
+	query := `UPDTATE account
     SET
         pwd_hash    = $1,
         first_name  = $2,
@@ -117,111 +132,121 @@ func (db *PostgresStore) UpdateAccount(acc *model.Account) error {
         id = $6
     ;`
 
-    _, err := db.db.Exec(query,
-        acc.PwdHash,
-        acc.FirstName,
-        acc.LastName,
-        acc.Email,
-        acc.Phone,
-    )
-    return err
+	_, err := s.db.Exec(query,
+		acc.PwdHash,
+		acc.FirstName,
+		acc.LastName,
+		acc.Email,
+		acc.Phone,
+	)
+	return err
 }
-func (db *PostgresStore) DeleteAccount(id int) error {
-    query := `UPDATE account
+func (s *PostgresStore) DeleteAccount(id int) error {
+    s.mux.Lock()
+    defer s.mux.Unlock()
+
+	query := `UPDATE account
     SET 
         deleted_at = NOW() 
     WHERE
         id = $1 AND deleted_at IS NULL
     ;`
-    res, err := db.db.Exec(query, id);
-    rows, err := res.RowsAffected()
-    if rows == 0 {
-        return fmt.Errorf("account doesn't exist")
-    }
-    return err
+	res, err := s.db.Exec(query, id)
+	rows, err := res.RowsAffected()
+	if rows == 0 {
+		return fmt.Errorf("account doesn't exist")
+	}
+	return err
 }
 
-func (db *PostgresStore) GetAccounts() ([]*model.Account, error) {
+func (s *PostgresStore) GetAccounts() ([]*model.Account, error) {
+    s.mux.RLock()
+    defer s.mux.RUnlock()
 
-    rows, err := db.db.Query("SELECT * FROM account WHERE deleted_at IS NULL")
-    if err != nil {
-        return nil, err
-    }
+	rows, err := s.db.Query("SELECT * FROM account WHERE deleted_at IS NULL")
+	if err != nil {
+		return nil, err
+	}
 
-    accounts := []*model.Account{}
-    for rows.Next() {
-        acc, err := scanRowsIntoAccount(rows)
-        if err != nil {
-            return nil, err
-        }
+	accounts := []*model.Account{}
+	for rows.Next() {
+		acc, err := scanRowsIntoAccount(rows)
+		if err != nil {
+			return nil, err
+		}
 
-
-        accounts = append(accounts, acc)
-    }
+		accounts = append(accounts, acc)
+	}
 
 	return accounts, nil
 }
 
-func (db *PostgresStore) GetAccountById(id int) (*model.Account, error) {
-    query := `SELECT * FROM account WHERE id = $1 AND deleted_at IS NULL;`
-    row := db.db.QueryRow(query, id)
-    if row == nil {
-        return nil, fmt.Errorf("Account %d not found", id)
-    }
+func (s *PostgresStore) GetAccountById(id int) (*model.Account, error) {
+    s.mux.RLock()
+    defer s.mux.RUnlock()
 
-    acc, err := scanRowIntoAccount(row)
-    if err != nil {
-        return nil, fmt.Errorf("Account %d not found", id)
-    }
+	query := `SELECT * FROM account WHERE id = $1 AND deleted_at IS NULL;`
+	row := s.db.QueryRow(query, id)
+	if row == nil {
+		return nil, fmt.Errorf("Account %d not found", id)
+	}
 
-	return acc, nil 
+	acc, err := scanRowIntoAccount(row)
+	if err != nil {
+		return nil, fmt.Errorf("Account %d not found", id)
+	}
+
+	return acc, nil
 }
 
-func (db *PostgresStore) GetAccountByUser(user string) (*model.Account, error) {
-    query := `SELECT * FROM account WHERE username = $1 AND deleted_at IS NULL;`
-    row := db.db.QueryRow(query, user)
-    if row == nil {
-        return nil, fmt.Errorf("Account `%s` not found", user)
-    }
+func (s *PostgresStore) GetAccountByUser(user string) (*model.Account, error) {
+    s.mux.RLock()
+    defer s.mux.RUnlock()
 
-    acc, err := scanRowIntoAccount(row)
-    if err != nil {
-        return nil, fmt.Errorf("Account `%s` not found", user)
-    }
+	query := `SELECT * FROM account WHERE username = $1 AND deleted_at IS NULL;`
+	row := s.db.QueryRow(query, user)
+	if row == nil {
+		return nil, fmt.Errorf("Account `%s` not found", user)
+	}
 
-	return acc, nil 
+	acc, err := scanRowIntoAccount(row)
+	if err != nil {
+		return nil, fmt.Errorf("Account `%s` not found", user)
+	}
+
+	return acc, nil
 }
 
 func scanRowsIntoAccount(rows *sql.Rows) (*model.Account, error) {
-    acc := &model.Account{}
-    err := rows.Scan(
-        &acc.Id,
-        &acc.User, 
-        &acc.PwdHash, 
-        &acc.FirstName,
-        &acc.LastName,
-        &acc.Email,
-        &acc.Phone,
-        &acc.CreatedAt,
-        &acc.UpdatedAt,
-        &acc.DeletedAt,
-    )
+	acc := &model.Account{}
+	err := rows.Scan(
+		&acc.Id,
+		&acc.User,
+		&acc.PwdHash,
+		&acc.FirstName,
+		&acc.LastName,
+		&acc.Email,
+		&acc.Phone,
+		&acc.CreatedAt,
+		&acc.UpdatedAt,
+		&acc.DeletedAt,
+	)
 	return acc, err
 }
 
 func scanRowIntoAccount(row *sql.Row) (*model.Account, error) {
-    acc := &model.Account{}
-    err := row.Scan(
-        &acc.Id,
-        &acc.User, 
-        &acc.PwdHash, 
-        &acc.FirstName,
-        &acc.LastName,
-        &acc.Email,
-        &acc.Phone,
-        &acc.CreatedAt,
-        &acc.UpdatedAt,
-        &acc.DeletedAt,
-    )
+	acc := &model.Account{}
+	err := row.Scan(
+		&acc.Id,
+		&acc.User,
+		&acc.PwdHash,
+		&acc.FirstName,
+		&acc.LastName,
+		&acc.Email,
+		&acc.Phone,
+		&acc.CreatedAt,
+		&acc.UpdatedAt,
+		&acc.DeletedAt,
+	)
 	return acc, err
 }
