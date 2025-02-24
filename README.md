@@ -1,6 +1,6 @@
 # Project auth-demo 
 
-One Paragraph of project description goes here
+This is the server size code for the auth-demo project. This will use JWT secrets in order to log users into their sessions.
 
 ## Getting Started
 
